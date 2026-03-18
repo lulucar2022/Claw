@@ -1,0 +1,97 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/target/
+.mvn/wrapper/
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+*.swp
+*.swo
+*~
+~$*
+
+# Build
+out/
+build/
+dist/
+bin/
+gen/
+.gradle/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temp
+temp/
+tmp/
+
+# Config files
+*.properties
+*.yml
+*.yaml
+!application.yml
+!application.properties
+
+# Database
+*.db
+*.sqlite
+
+# Frontend build artifacts
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/.nuxt/
+frontend/.cache/
+
+# Backend specific
+backend/src/main/resources/static/
+backend/src/main/resources/templates/
+
+# Test reports
+test-output/
+surefire-reports/
+failsafe-reports/
+
+# Documentation
+docs/_build/
+docs/.vuepress/dist/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# CodeBuddy
+.codebuddy/
