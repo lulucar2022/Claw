@@ -255,25 +255,130 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 5. **代码审查**: 在代码审查中特别关注第三方库的使用方式
 6. **技术雷达**: 建立技术雷达，跟踪重要依赖库的版本更新和API变更
 
+### 问题 #006
+- **问题ID**: A2-20240317-006
+- **发现时间**: 2026-03-17
+- **发现人**: 系统
+- **影响文件**: `UserDetailsServiceImpl.java`
+- **问题分类**: A2 (类型错误) + E4 (安全性问题)
+
+#### 问题描述
+在 `UserDetailsServiceImpl.java` 文件中存在多个问题：
+1. 调用了不存在的 `findByUsernameOrEmail(String, String)` 方法
+2. 硬编码了"ROLE_USER"权限，没有考虑用户的实际角色
+3. 没有检查用户状态（禁用、锁定等）
+4. 异常处理不够详细
+
+#### 错误信息
+```
+[Error] Line 25: The method findByUsernameOrEmail(String) in the type UserRepository is not applicable for the arguments (String, String)
+```
+
+#### 根本原因
+1. **方法签名不匹配**: `UserRepository.findByUsernameOrEmail` 方法只接受一个参数，但代码中传入了两个参数
+2. **安全性设计不足**: 没有考虑用户角色管理和状态检查
+3. **异常处理简单**: 使用通用的 `DataNotFoundException` 而不是 `UsernameNotFoundException`
+4. **边界条件忽略**: 没有处理用户禁用、锁定等状态
+
+#### 解决方案
+1. **修复方法调用**: 将 `findByUsernameOrEmail(username, username)` 改为 `findByUsernameOrEmail(username)`
+2. **增强安全性**:
+   - 添加用户状态检查方法 `checkUserStatus(User)`
+   - 实现动态角色获取方法 `getUserAuthorities(User)`
+   - 根据用户状态设置账户锁定和禁用状态
+3. **改进异常处理**:
+   - 使用 `UsernameNotFoundException` 提供更详细的错误信息
+   - 区分不同类型的用户状态异常
+4. **添加辅助方法**:
+   - `checkUserStatus(User)`: 检查用户状态并抛出相应异常
+   - `getUserAuthorities(User)`: 获取用户权限（支持未来扩展）
+   - `getGrantedAuthorities(User)`: 获取GrantedAuthority列表
+
+#### 修复文件
+- `backend/src/main/java/com/claw/common/security/UserDetailsServiceImpl.java`
+
+#### 预防措施
+1. **接口契约**: 严格遵循接口定义的方法签名
+2. **安全设计**: 在用户认证服务中考虑完整的安全因素
+3. **状态管理**: 正确处理用户的各种状态（正常、禁用、锁定等）
+4. **异常分层**: 使用适当的异常类型，提供详细的错误信息
+5. **代码审查**: 在安全相关代码中加强审查
+6. **单元测试**: 编写覆盖各种用户状态的单元测试
+
+### 问题 #007
+- **问题ID**: A2-20240317-007
+- **发现时间**: 2026-03-17
+- **发现人**: 系统
+- **影响文件**: `AnswerService.java`
+- **问题分类**: A2 (类型错误) + C1 (逻辑错误)
+
+#### 问题描述
+在 `AnswerService.java` 文件中存在多个类型不匹配和逻辑错误：
+1. 将 `QuestionType` 枚举类型传递给期望 `String` 类型的 `setQuestionType` 方法
+2. 将 `DifficultyLevel` 枚举类型传递给期望 `String` 类型的 `setDifficulty` 方法
+3. 将 `QuestionType` 枚举与字符串字面量进行比较，导致逻辑错误
+4. 重复调用 `question.getQuestionType()`，存在性能问题
+
+#### 错误信息
+```
+[Error] Line 317: The method setQuestionType(String) in the type AnswerResultDTO is not applicable for the arguments (QuestionType)
+[Error] Line 320: The method setDifficulty(String) in the type AnswerResultDTO is not applicable for the arguments (DifficultyLevel)
+```
+
+#### 根本原因
+1. **类型系统不匹配**: DTO 使用字符串类型，而实体类使用枚举类型
+2. **枚举使用不当**: 没有正确使用枚举的辅助方法和常量
+3. **代码重复**: 重复调用相同的方法，没有缓存结果
+4. **字符串硬编码**: 使用字符串字面量而不是枚举常量，容易出错
+
+#### 解决方案
+1. **类型转换修复**:
+   - `question.getQuestionType()` → `question.getQuestionType().getCode()`
+   - `question.getDifficulty()` → `question.getDifficulty().getCode()`
+
+2. **逻辑错误修复**:
+   - 使用 `QuestionType.isChoiceQuestion()` 代替 `"single".equals(...) || "multiple".equals(...)`
+   - 使用 `QuestionType.isCodeQuestion()` 代替 `"code".equals(...)`
+   - 缓存 `question.getQuestionType()` 结果，避免重复调用
+
+3. **性能优化**:
+   - 在 `submitAnswer` 方法中缓存 `questionType` 变量
+   - 使用枚举的辅助方法提高代码可读性和性能
+
+4. **代码质量提升**:
+   - 使用枚举常量代替字符串字面量
+   - 添加详细的注释说明类型转换逻辑
+
+#### 修复文件
+- `backend/src/main/java/com/claw/modules/answer/service/AnswerService.java`
+
+#### 预防措施
+1. **类型一致性**: 在项目中使用统一的类型系统，DTO和实体类保持类型一致
+2. **枚举最佳实践**: 正确使用枚举的辅助方法、常量和类型转换
+3. **性能意识**: 避免在循环或频繁调用的方法中重复计算
+4. **代码审查**: 在代码审查中特别关注类型转换和枚举使用
+5. **单元测试**: 编写覆盖各种枚举类型的单元测试
+6. **文档规范**: 在项目文档中明确枚举和DTO的类型映射规则
+
 ## 问题统计
 
 ### 按分类统计
 | 分类 | 数量 | 占比 |
 |------|------|------|
-| A类: 编译错误 | 4 | 80% |
+| A类: 编译错误 | 6 | 85.7% |
 | B类: 运行时错误 | 0 | 0% |
-| C类: 逻辑错误 | 0 | 0% |
-| D类: 设计问题 | 1 | 20% |
-| E类: 代码质量问题 | 0 | 0% |
+| C类: 逻辑错误 | 1 | 14.3% |
+| D类: 设计问题 | 1 | 14.3% |
+| E类: 代码质量问题 | 1 | 14.3% |
 | F类: 配置问题 | 0 | 0% |
-| **总计** | **5** | **100%** |
+| **总计** | **7** | **100%** |
 
 ### 按严重程度统计
 | 严重程度 | 数量 | 说明 |
 |----------|------|------|
-| 阻塞性 | 4 | 导致编译失败，无法运行 |
+| 阻塞性 | 6 | 导致编译失败，无法运行 |
 | 严重 | 1 | 设计问题，影响可维护性 |
-| 一般 | 0 | 功能正常但有优化空间 |
+| 一般 | 1 | 功能正常但有优化空间 |
 | 轻微 | 0 | 代码风格问题 |
 
 ## 根本原因分析
@@ -283,7 +388,11 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 2. **依赖管理不当**: 使用未创建的类
 3. **工具理解不足**: 对 Lombok 功能理解不全面
 4. **API版本不匹配**: 使用已弃用的第三方库API
-5. **设计规范缺失**: 缺乏统一的设计标准
+5. **接口契约违反**: 不遵循接口定义的方法签名
+6. **安全设计不足**: 忽略用户状态和角色管理
+7. **类型系统不匹配**: DTO和实体类使用不同的类型系统
+8. **枚举使用不当**: 没有正确使用枚举的辅助方法和常量
+9. **设计规范缺失**: 缺乏统一的设计标准
 
 ### 过程原因
 1. **代码审查不足**: 问题代码进入代码库
@@ -306,6 +415,10 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 4. **语法检查**: 配置 IDE 强化语法检查
 5. **API兼容性检查**: 建立第三方库API变更监控机制
 6. **版本管理**: 制定明确的依赖版本管理策略
+7. **接口契约验证**: 在编译时验证接口实现的一致性
+8. **安全设计审查**: 建立安全代码审查清单
+9. **类型一致性检查**: 建立DTO和实体类的类型映射规范
+10. **枚举最佳实践**: 制定枚举使用规范和代码模板
 
 ### 流程改进
 1. **代码审查清单**: 制定详细的代码审查清单
@@ -362,5 +475,5 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 ---
 
 *本文档将持续更新，记录项目开发过程中的所有代码问题*
-*最后更新: 2026-03-17 (添加问题#005)*
-*版本: v1.1*
+*最后更新: 2026-03-17 (添加问题#007)*
+*版本: v1.3*

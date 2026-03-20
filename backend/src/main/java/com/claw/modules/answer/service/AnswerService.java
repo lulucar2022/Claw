@@ -49,17 +49,19 @@ public class AnswerService {
         boolean isCorrect = false;
         Double score = 0.0;
         
-        if ("single".equals(question.getQuestionType()) || 
-            "multiple".equals(question.getQuestionType())) {
+        // 获取题目类型并缓存
+        com.claw.modules.question.enums.QuestionType questionType = question.getQuestionType();
+        
+        if (questionType.isChoiceQuestion()) {
             // 选择题
             isCorrect = question.getCorrectAnswer().equals(submitDTO.getUserAnswer());
             score = isCorrect ? 10.0 : 0.0;
-        } else if ("code".equals(question.getQuestionType())) {
+        } else if (questionType.isCodeQuestion()) {
             // 代码题 - 这里简化处理，实际应该执行代码并判断测试用例
             isCorrect = checkCodeAnswer(submitDTO.getCodeSubmission(), question.getTestCases());
             score = isCorrect ? 10.0 : calculatePartialScore(submitDTO.getTestCases());
         } else {
-            // 其他类型题目
+            // 其他类型题目（填空题、简答题）
             isCorrect = checkTextAnswer(submitDTO.getUserAnswer(), question.getCorrectAnswer());
             score = isCorrect ? 10.0 : 5.0; // 部分正确给5分
         }
@@ -78,7 +80,7 @@ public class AnswerService {
         answer.setSessionId(submitDTO.getSessionId());
         
         // 设置测试结果（如果是代码题）
-        if ("code".equals(question.getQuestionType())) {
+        if (questionType.isCodeQuestion()) {
             Map<String, Object> testResults = new HashMap<>();
             testResults.put("executionTime", 120);
             testResults.put("memoryUsage", 256);
@@ -293,7 +295,7 @@ public class AnswerService {
         dto.setAnswerExplanation(question.getAnswerExplanation());
         
         // 设置代码题结果
-        if ("code".equals(question.getQuestionType())) {
+        if (question.getQuestionType().isCodeQuestion()) {
             dto.setExecutionTime(120);
             dto.setMemoryUsage(256);
         }
@@ -314,8 +316,8 @@ public class AnswerService {
         // 设置题目信息
         dto.setQuestionTitle(question.getTitle());
         dto.setQuestionContent(question.getContent());
-        dto.setQuestionType(question.getQuestionType());
-        dto.setDifficulty(question.getDifficulty());
+        dto.setQuestionType(question.getQuestionType().getCode());
+        dto.setDifficulty(question.getDifficulty().getCode());
         
         return dto;
     }

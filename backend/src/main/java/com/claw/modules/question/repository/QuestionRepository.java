@@ -7,6 +7,7 @@ import com.claw.modules.question.enums.QuestionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,7 +22,7 @@ import java.util.Optional;
  * 题目数据访问层
  */
 @Repository
-public interface QuestionRepository extends JpaRepository<Question, Long> {
+public interface QuestionRepository extends JpaRepository<Question, Long>, JpaSpecificationExecutor<Question> {
 
     /**
      * 根据分类ID查找题目
@@ -277,5 +278,15 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
      */
     @Query("SELECT q FROM Question q WHERE q.publishedAt BETWEEN :startDate AND :endDate AND q.deletedAt IS NULL")
     List<Question> findByPublishedAtBetween(@Param("startDate") LocalDateTime startDate,
-                                           @Param("endDate") LocalDateTime endDate);
+                                          @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 查找相似题目
+     */
+    @Query("SELECT q FROM Question q WHERE q.categoryId = :categoryId AND q.difficulty = :difficulty AND q.id != :excludeId AND q.status = :status AND q.deletedAt IS NULL ORDER BY q.hotScore DESC LIMIT :limit")
+    List<Question> findSimilarQuestions(@Param("categoryId") Long categoryId,
+                                      @Param("difficulty") DifficultyLevel difficulty,
+                                      @Param("excludeId") Long excludeId,
+                                      @Param("limit") int limit,
+                                      @Param("status") QuestionStatus status);
 }

@@ -1,9 +1,12 @@
 package com.claw.modules.question.service;
 
 import com.claw.modules.question.entity.Question;
+import com.claw.modules.question.repository.QuestionCategoryRepository;
 import com.claw.modules.question.repository.QuestionRepository;
 import com.claw.common.exception.DataNotFoundException;
 import com.claw.modules.question.dto.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,18 +16,20 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @Service
 public class QuestionService {
     
     private final QuestionRepository questionRepository;
     private final QuestionCategoryRepository categoryRepository;
+    private final ObjectMapper objectMapper;
     
     public QuestionService(QuestionRepository questionRepository, 
                           QuestionCategoryRepository categoryRepository) {
         this.questionRepository = questionRepository;
         this.categoryRepository = categoryRepository;
+        this.objectMapper = new ObjectMapper();
     }
     
     /**
@@ -36,7 +41,7 @@ public class QuestionService {
             List<Predicate> predicates = new ArrayList<>();
             
             // 状态过滤：只查询已发布的题目
-            predicates.add(cb.equal(root.get("status"), 2)); // 2表示已发布
+            predicates.add(cb.equal(root.get("status"), com.claw.modules.question.enums.QuestionStatus.PUBLISHED));
             
             // 分类过滤
             if (queryDTO.getCategoryId() != null) {
@@ -45,7 +50,7 @@ public class QuestionService {
             
             // 难度过滤
             if (queryDTO.getDifficulty() != null) {
-                predicates.add(cb.equal(root.get("difficulty"), queryDTO.getDifficulty()));
+                predicates.add(cb.equal(root.get("difficulty"), com.claw.modules.question.enums.DifficultyLevel.fromCode(queryDTO.getDifficulty())));
             }
             
             // 关键词搜索
@@ -97,18 +102,18 @@ public class QuestionService {
         question.setTitle(createDTO.getTitle());
         question.setContent(createDTO.getContent());
         question.setCategoryId(createDTO.getCategoryId());
-        question.setQuestionType(createDTO.getQuestionType());
-        question.setDifficulty(createDTO.getDifficulty());
+        question.setQuestionType(com.claw.modules.question.enums.QuestionType.fromCode(createDTO.getQuestionType()));
+        question.setDifficulty(com.claw.modules.question.enums.DifficultyLevel.fromCode(createDTO.getDifficulty()));
         question.setTags(createDTO.getTags());
         question.setKeyPoints(createDTO.getKeyPoints());
-        question.setOptions(createDTO.getOptions());
+        question.setOptions(toJson(createDTO.getOptions()));
         question.setCorrectAnswer(createDTO.getCorrectAnswer());
         question.setAnswerExplanation(createDTO.getAnswerExplanation());
         question.setCodeTemplate(createDTO.getCodeTemplate());
-        question.setTestCases(createDTO.getTestCases());
+        question.setTestCases(toJson(createDTO.getTestCases()));
         question.setLanguage(createDTO.getLanguage());
         question.setSourceInfo(createDTO.getSourceInfo());
-        question.setStatus(1); // 草稿状态
+        question.setStatus(com.claw.modules.question.enums.QuestionStatus.DRAFT); // 草稿状态
         
         Question savedQuestion = questionRepository.save(question);
         return savedQuestion.getId();
@@ -136,10 +141,10 @@ public class QuestionService {
             question.setContent(updateDTO.getContent());
         }
         if (updateDTO.getQuestionType() != null) {
-            question.setQuestionType(updateDTO.getQuestionType());
+            question.setQuestionType(com.claw.modules.question.enums.QuestionType.fromCode(updateDTO.getQuestionType()));
         }
         if (updateDTO.getDifficulty() != null) {
-            question.setDifficulty(updateDTO.getDifficulty());
+            question.setDifficulty(com.claw.modules.question.enums.DifficultyLevel.fromCode(updateDTO.getDifficulty()));
         }
         if (updateDTO.getTags() != null) {
             question.setTags(updateDTO.getTags());
@@ -148,7 +153,7 @@ public class QuestionService {
             question.setKeyPoints(updateDTO.getKeyPoints());
         }
         if (updateDTO.getOptions() != null) {
-            question.setOptions(updateDTO.getOptions());
+            question.setOptions(toJson(updateDTO.getOptions()));
         }
         if (updateDTO.getCorrectAnswer() != null) {
             question.setCorrectAnswer(updateDTO.getCorrectAnswer());
@@ -160,7 +165,7 @@ public class QuestionService {
             question.setCodeTemplate(updateDTO.getCodeTemplate());
         }
         if (updateDTO.getTestCases() != null) {
-            question.setTestCases(updateDTO.getTestCases());
+            question.setTestCases(toJson(updateDTO.getTestCases()));
         }
         if (updateDTO.getLanguage() != null) {
             question.setLanguage(updateDTO.getLanguage());
@@ -188,7 +193,7 @@ public class QuestionService {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new DataNotFoundException("题目不存在"));
         
-        question.setStatus(2); // 已发布
+        question.setStatus(com.claw.modules.question.enums.QuestionStatus.PUBLISHED); // 已发布
         question.setPublishedAt(java.time.LocalDateTime.now());
         questionRepository.save(question);
     }
@@ -207,11 +212,52 @@ public class QuestionService {
                 question.getCategoryId(), 
                 question.getDifficulty(), 
                 questionId, 
-                count);
+                count,
+                com.claw.modules.question.enums.QuestionStatus.PUBLISHED);
         
         return similarQuestions.stream()
                 .map(this::convertToQuestionSimilarDTO)
                 .toList();
+    }
+    
+    /**
+     * 将对象转换为JSON字符串
+     */
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON转换失败", e);
+        }
+    }
+    
+    /**
+     * 将JSON字符串转换为对象
+     */
+    private <T> T fromJson(String json, Class<T> clazz) {
+        try {
+            if (json == null || json.trim().isEmpty()) {
+                return null;
+            }
+            return objectMapper.readValue(json, clazz);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON解析失败", e);
+        }
+    }
+    
+    /**
+     * 将JSON字符串转换为List<Map<String, Object>>
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fromJsonToListMap(String json) {
+        try {
+            if (json == null || json.trim().isEmpty()) {
+                return new ArrayList<>();
+            }
+            return objectMapper.readValue(json, List.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON解析失败", e);
+        }
     }
     
     /**
@@ -222,8 +268,8 @@ public class QuestionService {
         dto.setQuestionId(question.getId());
         dto.setTitle(question.getTitle());
         dto.setContent(question.getContent());
-        dto.setQuestionType(question.getQuestionType());
-        dto.setDifficulty(question.getDifficulty());
+        dto.setQuestionType(question.getQuestionType().getCode());
+        dto.setDifficulty(question.getDifficulty().getCode());
         dto.setCategoryId(question.getCategoryId());
         dto.setTags(question.getTags());
         dto.setViewCount(question.getViewCount());
@@ -244,16 +290,16 @@ public class QuestionService {
         dto.setQuestionId(question.getId());
         dto.setTitle(question.getTitle());
         dto.setContent(question.getContent());
-        dto.setQuestionType(question.getQuestionType());
-        dto.setDifficulty(question.getDifficulty());
+        dto.setQuestionType(question.getQuestionType().getCode());
+        dto.setDifficulty(question.getDifficulty().getCode());
         dto.setCategoryId(question.getCategoryId());
         dto.setTags(question.getTags());
         dto.setKeyPoints(question.getKeyPoints());
-        dto.setOptions(question.getOptions());
+        dto.setOptions(fromJsonToListMap(question.getOptions()));
         dto.setCorrectAnswer(question.getCorrectAnswer());
         dto.setAnswerExplanation(question.getAnswerExplanation());
         dto.setCodeTemplate(question.getCodeTemplate());
-        dto.setTestCases(question.getTestCases());
+        dto.setTestCases(fromJsonToListMap(question.getTestCases()));
         dto.setLanguage(question.getLanguage());
         dto.setSourceInfo(question.getSourceInfo());
         dto.setViewCount(question.getViewCount());
@@ -272,7 +318,7 @@ public class QuestionService {
         QuestionSimilarDTO dto = new QuestionSimilarDTO();
         dto.setQuestionId(question.getId());
         dto.setTitle(question.getTitle());
-        dto.setDifficulty(question.getDifficulty());
+        dto.setDifficulty(question.getDifficulty().getCode());
         dto.setAnswerCount(question.getAnswerCount());
         dto.setCorrectCount(question.getCorrectCount());
         return dto;
