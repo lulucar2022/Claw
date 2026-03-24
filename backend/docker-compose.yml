@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: claw-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: claw_db
+      MYSQL_USER: claw_user
+      MYSQL_PASSWORD: claw_password
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    networks:
+      - claw-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: claw-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - claw-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot 应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claw-backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "9090:9090"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JWT_SECRET_KEY=c2VjcmV0S2V5Rm9ySldUQXV0aGVudGljYXRpb25TeXN0ZW1TZWN1cml0eTIwMjQ=
+      # 数据库连接配置（使用 Docker 服务名）
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/claw_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      # Redis 连接配置
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      # JVM 参数
+      - JAVA_OPTS=-Xms512m -Xmx1g -XX:+UseG1GC
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - claw-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/api/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start-period: 60s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  claw-network:
+    driver: bridge

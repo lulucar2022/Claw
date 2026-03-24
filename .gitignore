@@ -62,6 +62,12 @@ tmp/
 !application.yml
 !application.properties
 
+# Docker files (allow in backend)
+!backend/Dockerfile
+!backend/docker-compose.yml
+!backend/.dockerignore
+!backend/DOCKER_README.md
+
 # Database
 *.db
 *.sqlite
