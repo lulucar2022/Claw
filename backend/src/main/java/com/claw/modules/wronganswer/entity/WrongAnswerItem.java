@@ -8,7 +8,7 @@ import lombok.EqualsAndHashCode;
 import java.time.LocalDateTime;
 
 @Data
-@EqualsAndHashCode(callOnly = true)
+@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "wrong_answer_items", indexes = {
     @Index(name = "idx_collection_id", columnList = "collection_id"),

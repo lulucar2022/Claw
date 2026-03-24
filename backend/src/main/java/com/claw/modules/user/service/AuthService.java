@@ -79,8 +79,8 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         
         // 生成JWT令牌
-        String accessToken = jwtTokenProvider.generateAccessToken(savedUser.getId());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getId());
+        String accessToken = jwtTokenProvider.generateAccessToken(savedUser.getId(), savedUser.getUsername());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getId(), savedUser.getUsername());
         
         // 创建用户会话
         UserSession userSession = createUserSession(savedUser, accessToken, refreshToken);
@@ -122,8 +122,8 @@ public class AuthService {
             userRepository.save(user);
             
             // 生成JWT令牌
-            String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
-            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername());
+            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getUsername());
             
             // 创建用户会话
             UserSession userSession = createUserSession(user, accessToken, refreshToken);
@@ -183,7 +183,7 @@ public class AuthService {
         }
 
         // 生成新的访问令牌
-        String newAccessToken = jwtTokenProvider.generateAccessToken(userId);
+        String newAccessToken = jwtTokenProvider.generateAccessToken(userId, user.getUsername());
         
         // 更新会话的最后活动时间
         userSession.updateLastActivityTime();

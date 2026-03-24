@@ -55,6 +55,14 @@ public class JwtTokenProvider {
     }
     
     /**
+     * 生成访问令牌（简化版，需要用户名）
+     */
+    public String generateAccessToken(Long userId) {
+        // 需要先获取用户名，这里暂时返回null，实际使用中需要传入用户名
+        throw new UnsupportedOperationException("需要用户名参数，请使用generateAccessToken(Long userId, String username)");
+    }
+    
+    /**
      * 生成刷新令牌
      */
     public String generateRefreshToken(Long userId, String username) {
@@ -69,6 +77,14 @@ public class JwtTokenProvider {
                 .setExpiration(expiryDate)
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
+    }
+    
+    /**
+     * 生成刷新令牌（简化版，需要用户名）
+     */
+    public String generateRefreshToken(Long userId) {
+        // 需要先获取用户名，这里暂时返回null，实际使用中需要传入用户名
+        throw new UnsupportedOperationException("需要用户名参数，请使用generateRefreshToken(Long userId, String username)");
     }
     
     /**
@@ -131,5 +147,19 @@ public class JwtTokenProvider {
                 null,
                 user.getAuthorities()
         );
+    }
+    
+    /**
+     * 获取访问令牌过期时间（秒）
+     */
+    public long getAccessTokenExpirationInSeconds() {
+        return jwtExpiration / 1000;
+    }
+    
+    /**
+     * 获取刷新令牌过期时间（秒）
+     */
+    public long getRefreshTokenExpirationInSeconds() {
+        return refreshExpiration / 1000;
     }
 }

@@ -92,7 +92,7 @@ public class UserController {
         log.info("更新用户状态请求: userId={}, status={}", userId, status);
         userService.updateUserStatus(userId, status);
         
-        return ResponseEntity.ok(ApiResponse.success("状态更新成功"));
+        return ResponseEntity.ok(ApiResponse.<Void>success(null, "状态更新成功"));
     }
 
     @DeleteMapping("/{userId}")
@@ -104,7 +104,7 @@ public class UserController {
         log.info("删除用户请求: {}", userId);
         userService.deleteUser(userId);
         
-        return ResponseEntity.ok(ApiResponse.success("用户删除成功"));
+        return ResponseEntity.ok(ApiResponse.<Void>success(null, "用户删除成功"));
     }
 
     @PutMapping("/{userId}/restore")
@@ -116,7 +116,7 @@ public class UserController {
         log.info("恢复用户请求: {}", userId);
         userService.restoreUser(userId);
         
-        return ResponseEntity.ok(ApiResponse.success("用户恢复成功"));
+        return ResponseEntity.ok(ApiResponse.<Void>success(null, "用户恢复成功"));
     }
 
     @GetMapping("/stats/summary")

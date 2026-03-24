@@ -360,24 +360,229 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 5. **单元测试**: 编写覆盖各种枚举类型的单元测试
 6. **文档规范**: 在项目文档中明确枚举和DTO的类型映射规则
 
+### 问题 #008
+- **问题ID**: A2-20240320-008
+- **发现时间**: 2026-03-20
+- **发现人**: 系统
+- **影响文件**: `QuestionService.java`
+- **问题分类**: A2 (类型错误) + D2 (设计问题)
+
+#### 问题描述
+在 `QuestionService.java` 文件中存在多个类型不匹配和设计问题：
+1. `QuestionRepository` 缺少 `JpaSpecificationExecutor` 接口，导致 `findAll(Specification, Pageable)` 方法不可用
+2. 字符串到枚举的类型转换错误
+3. 硬编码状态值，缺乏类型安全
+4. JSON 数据序列化/反序列化类型不匹配
+
+#### 错误信息
+```
+[Error] Line 69: The method findAll(Example<S>, Pageable) in the type QueryByExampleExecutor<Question> is not applicable for the arguments (Specification<Question>, Pageable)
+[Error] Line 101: The method setQuestionType(QuestionType) in the type Question is not applicable for the arguments (String)
+```
+
+#### 根本原因
+1. **接口实现不完整**: `QuestionRepository` 只继承了 `JpaRepository`，没有继承 `JpaSpecificationExecutor`
+2. **类型系统不匹配**: DTO 使用字符串，实体类使用枚举，缺乏统一的转换机制
+3. **硬编码问题**: 使用数字硬编码代替枚举常量，缺乏类型安全
+4. **JSON处理不当**: 实体类存储 JSON 字符串，但 DTO 使用复杂对象类型
+
+#### 解决方案
+1. **修复 Repository 接口**:
+   - 添加 `JpaSpecificationExecutor` 导入
+   - 修改 `QuestionRepository` 接口声明：`extends JpaRepository<Question, Long>, JpaSpecificationExecutor<Question>`
+
+2. **类型转换修复**:
+   - `createQuestion` 方法: 使用 `QuestionType.fromCode()` 和 `DifficultyLevel.fromCode()` 进行转换
+   - `updateQuestion` 方法: 同样使用枚举转换方法
+   - `getQuestions` 方法: 在 Specification 查询中转换难度级别
+
+3. **硬编码状态值修复**:
+   - 使用 `QuestionStatus.PUBLISHED` 代替 `2`
+   - 使用 `QuestionStatus.DRAFT` 代替 `1`
+
+4. **枚举到字符串转换**:
+   - 在 DTO 转换方法中使用 `.getCode()` 将枚举转换为字符串
+
+5. **JSON 数据处理**:
+   - 添加 `ObjectMapper` 进行 JSON 序列化/反序列化
+   - 添加 `toJson()` 和 `fromJsonToListMap()` 辅助方法
+   - 在 `createQuestion` 和 `updateQuestion` 中将 List 转换为 JSON 字符串
+   - 在 `convertToQuestionDetailDTO` 中将 JSON 字符串转换为 List
+
+6. **缺失方法修复**:
+   - 在 `QuestionRepository` 中添加 `findSimilarQuestions` 方法
+
+#### 修复文件
+- `backend/src/main/java/com/claw/modules/question/service/QuestionService.java`
+- `backend/src/main/java/com/claw/modules/question/repository/QuestionRepository.java`
+
+#### 预防措施
+1. **接口完整性**: 在实现 JPA Repository 时，根据需要继承相应的接口
+2. **类型一致性**: 建立 DTO 和实体类之间的类型转换规范
+3. **枚举最佳实践**: 使用枚举常量代替硬编码值
+4. **JSON 处理规范**: 统一 JSON 数据的序列化/反序列化方式
+5. **代码审查**: 在代码审查中特别关注类型转换和接口实现
+6. **单元测试**: 编写覆盖各种类型转换场景的单元测试
+
+### 问题 #009
+- **问题ID**: A4-20240320-009
+- **发现时间**: 2026-03-20
+- **发现人**: 系统
+- **影响文件**: `AuthController.java`, `AuthService.java`
+- **问题分类**: A4 (依赖缺失) + A2 (类型错误)
+
+#### 问题描述
+在用户认证模块中存在多个依赖缺失和类型错误问题：
+1. 缺失多个 DTO 类文件，导致导入错误
+2. `JwtTokenProvider` 方法签名不匹配
+3. `UserService` 类缺失
+4. `User` 实体类缺少状态操作方法
+
+#### 错误信息
+```
+[Error] Line 5: The import com.claw.modules.user.dto.LoginRequest cannot be resolved
+[Error] Line 75: Type mismatch: cannot convert from ResponseEntity<ApiResponse<String>> to ResponseEntity<ApiResponse<Void>>
+[Error] Line 82: The method generateAccessToken(Long, String) in the type JwtTokenProvider is not applicable for the arguments (Long)
+[Error] Line 30: UserService cannot be resolved to a type
+```
+
+#### 根本原因
+1. **项目结构不完整**: 缺少必要的 DTO 类文件
+2. **方法签名不一致**: `JwtTokenProvider` 的方法签名与调用方不匹配
+3. **服务类缺失**: `UserService` 类未创建
+4. **实体类功能不完整**: `User` 实体类缺少状态操作方法
+
+#### 解决方案
+1. **创建缺失的 DTO 类**:
+   - `LoginRequest.java` - 用户登录请求 DTO
+   - `AuthResponse.java` - 认证响应 DTO
+   - `RefreshTokenRequest.java` - 刷新令牌请求 DTO
+   - `ChangePasswordRequest.java` - 修改密码请求 DTO
+   - `ResetPasswordRequest.java` - 重置密码请求 DTO
+
+2. **修复类型不匹配**:
+   - 修改 `AuthController.logout()` 方法，使用 `ApiResponse.success()` 返回 `Void` 类型
+
+3. **扩展 `JwtTokenProvider`**:
+   - 添加简化版的方法 `generateAccessToken(Long)` 和 `generateRefreshToken(Long)`
+   - 修改 `AuthService` 中的调用，传入用户名参数
+   - 添加 `getAccessTokenExpirationInSeconds()` 和 `getRefreshTokenExpirationInSeconds()` 方法
+
+4. **创建 `UserService` 类**:
+   - 提供用户相关的业务逻辑
+   - 包括用户查询、更新、状态管理等功能
+
+5. **完善 `User` 实体类**:
+   - 添加 `enable()`, `disable()`, `lock()`, `unlock()` 方法
+
+#### 修复文件
+1. `backend/src/main/java/com/claw/modules/user/controller/AuthController.java`
+2. `backend/src/main/java/com/claw/modules/user/service/AuthService.java`
+3. `backend/src/main/java/com/claw/common/security/JwtTokenProvider.java`
+4. `backend/src/main/java/com/claw/modules/user/entity/User.java`
+5. 新创建的 DTO 类文件:
+   - `LoginRequest.java`
+   - `AuthResponse.java`
+   - `RefreshTokenRequest.java`
+   - `ChangePasswordRequest.java`
+   - `ResetPasswordRequest.java`
+6. 新创建的服务类:
+   - `UserService.java`
+
+#### 预防措施
+1. **项目结构规范**: 建立标准的项目结构和文件组织规范
+2. **接口契约设计**: 在设计阶段明确接口的方法签名和参数
+3. **依赖管理**: 建立清晰的依赖关系图，确保依赖完整
+4. **代码生成**: 使用代码生成工具或模板创建常用类
+5. **单元测试**: 编写集成测试验证模块间的依赖关系
+6. **文档规范**: 维护完整的 API 文档和类图
+
+### 问题 #010
+- **问题ID**: A4-20240321-010
+- **发现时间**: 2026-03-21
+- **发现人**: 系统
+- **影响文件**: `UserController.java`, `UserService.java`
+- **问题分类**: A4 (依赖缺失) + D2 (设计问题)
+
+#### 问题描述
+在用户信息管理模块中存在多个依赖缺失和设计问题：
+1. `UserService.getCurrentUserWithProfile()` 方法未实现，导致编译错误
+2. 缺少 `UpdateProfileRequest` DTO 类
+3. `ApiResponse` 泛型方法调用类型不匹配
+4. `User` 实体类字段与方法不匹配
+
+#### 错误信息
+```
+[Error] Line 37: The method getCurrentUserWithProfile() is undefined for the type UserService
+[Error] Line 4: The import com.claw.modules.user.dto.UpdateProfileRequest cannot be resolved
+[Error] Line 95: The parameterized method <Void>success(Void) of type ApiResponse is not applicable for the arguments (String)
+```
+
+#### 根本原因
+1. **服务层实现不完整**: `UserService` 缺少控制器所需的方法实现
+2. **DTO 类缺失**: 缺少用户资料更新的 DTO 类
+3. **泛型使用不当**: `ApiResponse` 的泛型方法与调用方式不匹配
+4. **实体类设计不一致**: `User` 实体类的字段名与方法名不匹配
+
+#### 解决方案
+1. **完善 UserService 实现**:
+   - 添加 `getCurrentUserWithProfile()` 方法
+   - 添加 `updateProfile(UpdateProfileRequest)` 方法
+   - 添加 `getUsers(Pageable, String, Integer)` 分页查询方法
+   - 添加 `updateUserStatus(Long, Integer)` 状态更新方法
+   - 添加 `deleteUser(Long)` 和 `restoreUser(Long)` 方法
+   - 添加统计和搜索相关方法
+
+2. **创建 UpdateProfileRequest DTO**:
+   - 包含用户个人资料的所有可更新字段
+   - 添加数据验证注解
+   - 添加 Swagger 文档注解
+
+3. **修复 ApiResponse 调用**:
+   - 使用 `ApiResponse.<Void>success(null, "消息")` 语法
+   - 确保泛型类型与返回类型匹配
+
+4. **处理实体类字段不匹配**:
+   - 使用 `setAvatarUrl()` 而不是 `setAvatar()`
+   - 处理 `techStack` 的 `List<String>` 类型转换
+   - 移除不存在的 `setBio()` 方法调用
+
+5. **修复分页查询问题**:
+   - 使用 `PageImpl` 实现手动分页
+   - 处理状态筛选时的分页逻辑
+
+#### 修复文件
+1. `backend/src/main/java/com/claw/modules/user/controller/UserController.java`
+2. `backend/src/main/java/com/claw/modules/user/service/UserService.java`
+3. 新创建的 DTO 类:
+   - `UpdateProfileRequest.java`
+
+#### 预防措施
+1. **接口驱动开发**: 先定义接口契约，再实现具体逻辑
+2. **DTO 设计规范**: 建立统一的 DTO 设计规范
+3. **泛型使用规范**: 制定泛型使用的最佳实践
+4. **实体类一致性**: 确保实体类的字段名和方法名一致
+5. **分页查询模板**: 创建分页查询的代码模板
+6. **单元测试**: 编写控制器和服务层的集成测试
+
 ## 问题统计
 
 ### 按分类统计
 | 分类 | 数量 | 占比 |
 |------|------|------|
-| A类: 编译错误 | 6 | 85.7% |
+| A类: 编译错误 | 9 | 90.0% |
 | B类: 运行时错误 | 0 | 0% |
-| C类: 逻辑错误 | 1 | 14.3% |
-| D类: 设计问题 | 1 | 14.3% |
-| E类: 代码质量问题 | 1 | 14.3% |
+| C类: 逻辑错误 | 1 | 10.0% |
+| D类: 设计问题 | 3 | 30.0% |
+| E类: 代码质量问题 | 1 | 10.0% |
 | F类: 配置问题 | 0 | 0% |
-| **总计** | **7** | **100%** |
+| **总计** | **10** | **100%** |
 
 ### 按严重程度统计
 | 严重程度 | 数量 | 说明 |
 |----------|------|------|
-| 阻塞性 | 6 | 导致编译失败，无法运行 |
-| 严重 | 1 | 设计问题，影响可维护性 |
+| 阻塞性 | 9 | 导致编译失败，无法运行 |
+| 严重 | 3 | 设计问题，影响可维护性 |
 | 一般 | 1 | 功能正常但有优化空间 |
 | 轻微 | 0 | 代码风格问题 |
 
@@ -393,18 +598,38 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 7. **类型系统不匹配**: DTO和实体类使用不同的类型系统
 8. **枚举使用不当**: 没有正确使用枚举的辅助方法和常量
 9. **设计规范缺失**: 缺乏统一的设计标准
+10. **项目结构不完整**: 缺少必要的类文件
+11. **接口设计不一致**: 方法签名与调用方不匹配
+12. **服务层缺失**: 缺少必要的业务服务类
+13. **实体类功能不完整**: 实体类缺少必要的业务方法
+14. **服务层实现不完整**: 控制器依赖的服务方法未实现
+15. **DTO 设计缺失**: 缺少必要的数据传输对象
+16. **泛型使用错误**: 对泛型方法的调用方式不正确
+17. **实体类设计不一致**: 字段名和方法名不匹配
 
 ### 过程原因
 1. **代码审查不足**: 问题代码进入代码库
 2. **开发顺序不当**: 使用先于定义
 3. **知识传递不够**: 团队成员对技术栈理解不一致
 4. **测试覆盖不全**: 缺乏编译时检查
+5. **模块开发顺序不当**: 依赖模块未先开发
+6. **接口设计文档缺失**: 缺乏清晰的接口定义
+7. **代码生成工具未充分利用**: 手动创建类容易遗漏
+8. **开发顺序不当**: 控制器先于服务层实现
+9. **接口契约不明确**: 缺乏清晰的接口定义
+10. **代码审查遗漏**: 未发现服务层实现不完整
 
 ### 组织原因
 1. **规范文档缺失**: 缺乏编码规范和设计指南
 2. **培训不足**: 新技术栈培训不够
 3. **工具链不完善**: 缺乏静态分析工具
 4. **流程不严谨**: 开发流程存在漏洞
+5. **项目模板不完善**: 缺乏标准的项目模板
+6. **开发流程不规范**: 缺乏模块开发顺序指导
+7. **知识库不完整**: 缺乏常见问题的解决方案文档
+8. **开发规范缺失**: 缺乏服务层开发规范
+9. **代码模板不足**: 缺乏常用类的代码模板
+10. **测试覆盖不全**: 缺乏接口契约测试
 
 ## 改进措施
 
@@ -419,18 +644,38 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 8. **安全设计审查**: 建立安全代码审查清单
 9. **类型一致性检查**: 建立DTO和实体类的类型映射规范
 10. **枚举最佳实践**: 制定枚举使用规范和代码模板
+11. **项目模板**: 创建标准的 Spring Boot 项目模板
+12. **接口设计工具**: 使用 OpenAPI/Swagger 设计接口
+13. **代码生成**: 使用代码生成工具生成常用类
+14. **依赖图分析**: 使用工具分析项目依赖关系
+15. **接口契约测试**: 使用契约测试确保接口一致性
+16. **DTO 生成工具**: 使用工具自动生成 DTO 类
+17. **泛型使用指南**: 制定泛型使用的最佳实践指南
+18. **实体类设计规范**: 制定实体类字段和方法命名规范
 
 ### 流程改进
 1. **代码审查清单**: 制定详细的代码审查清单
 2. **构建顺序管理**: 明确模块构建依赖关系
 3. **知识分享**: 定期组织技术分享会
 4. **问题追溯**: 建立问题追溯机制
+5. **模块开发顺序**: 制定模块开发顺序指南
+6. **接口先行**: 采用接口先行的开发模式
+7. **依赖检查**: 在构建时检查模块依赖完整性
+8. **服务层优先**: 采用服务层优先的开发顺序
+9. **接口契约审查**: 在代码审查中检查接口契约
+10. **依赖完整性检查**: 在构建时检查服务层实现完整性
 
 ### 组织改进
 1. **规范制定**: 制定完整的编码规范和设计指南
 2. **培训计划**: 制定系统化的技术培训计划
 3. **工具链建设**: 完善开发工具链
 4. **质量文化**: 建立质量至上的团队文化
+5. **项目模板库**: 建立可复用的项目模板库
+6. **开发指南**: 制定详细的开发流程指南
+7. **知识库建设**: 建立团队知识库，记录常见问题
+8. **开发规范文档**: 制定完整的开发规范文档
+9. **代码模板库**: 建立常用类的代码模板库
+10. **培训计划**: 增加技术培训，提高开发质量
 
 ## 附录
 
@@ -472,8 +717,105 @@ The method setData(Map<String,String>) is undefined for the type ApiResponse<Map
 - **E{数字}**: 代码质量问题
 - **F{数字}**: 配置问题
 
----
+### 问题 #011
+- **问题ID**: A1-20240321-011
+- **发现时间**: 2026-03-21
+- **发现人**: 系统
+- **影响文件**: `WrongAnswerItem.java`
+- **问题分类**: A1 (语法错误) + D2 (设计问题)
 
+#### 问题描述
+在 `WrongAnswerItem.java` 文件中存在 Lombok 注解语法错误：
+1. 使用了不存在的 `callOnly` 属性，正确的属性应该是 `callSuper`
+2. 可能导致生成的 `equals()` 和 `hashCode()` 方法不正确处理父类字段
+
+#### 错误信息
+```
+[Error] Line 11: The attribute callOnly is undefined for the annotation type EqualsAndHashCode
+```
+
+#### 根本原因
+1. **Lombok 注解属性错误**: 混淆了 `callOnly` 和 `callSuper` 属性名
+2. **开发人员不熟悉**: 对 Lombok 注解的属性和用法理解不准确
+3. **IDE 自动补全误导**: 可能使用了错误的代码补全建议
+4. **继承关系处理不当**: 如果 `callSuper` 设置不正确，可能导致继承自 `BaseEntity` 的字段不被包含在相等性比较中
+
+#### 解决方案
+1. **修复注解属性**:
+   - 将 `@EqualsAndHashCode(callOnly = true)` 改为 `@EqualsAndHashCode(callSuper = true)`
+   - 确保生成的 `equals()` 和 `hashCode()` 方法正确调用父类方法
+
+2. **继承实体类最佳实践**:
+   - 对于继承自父类的实体类，应设置 `callSuper = true`
+   - 确保父类的关键字段（如 `id`）被包含在相等性比较中
+
+3. **数据一致性保障**:
+   - 正确的 `equals()` 和 `hashCode()` 实现确保集合操作的正确性
+   - 避免在 `HashSet`、`HashMap` 等集合中出现异常行为
+
+#### 修复文件
+- `backend/src/main/java/com/claw/modules/wronganswer/entity/WrongAnswerItem.java`
+
+#### 预防措施
+1. **Lombok 文档学习**: 开发人员应熟悉常用的 Lombok 注解及其属性
+2. **IDE 配置**: 安装和配置 Lombok 插件，确保获得正确的代码补全和文档提示
+3. **代码审查**: 在代码审查中检查 Lombok 注解的使用是否正确
+4. **单元测试**: 编写测试验证生成的 `equals()` 和 `hashCode()` 方法的正确性
+5. **规范文档**: 在项目编码规范中明确 Lombok 注解的使用规则
+6. **培训计划**: 组织 Lombok 使用最佳实践的培训
+
+## 问题统计更新
+
+### 按分类统计
+| 分类 | 数量 | 占比 |
+|------|------|------|
+| A类: 编译错误 | 10 | 90.9% |
+| B类: 运行时错误 | 0 | 0% |
+| C类: 逻辑错误 | 1 | 9.1% |
+| D类: 设计问题 | 4 | 36.4% |
+| E类: 代码质量问题 | 1 | 9.1% |
+| F类: 配置问题 | 0 | 0% |
+| **总计** | **11** | **100%** |
+
+### 按严重程度统计
+| 严重程度 | 数量 | 说明 |
+|----------|------|------|
+| 阻塞性 | 10 | 导致编译失败，无法运行 |
+| 严重 | 4 | 设计问题，影响可维护性 |
+| 一般 | 1 | 功能正常但有优化空间 |
+| 轻微 | 0 | 代码风格问题 |
+
+## 根本原因分析更新
+
+### 新增技术原因
+18. **Lombok 注解属性错误**: 使用了不存在的属性名
+19. **继承实体设计不当**: 没有正确处理父类字段的相等性比较
+
+### 新增过程原因
+11. **工具使用不熟练**: 对 Lombok 库的使用不够熟悉
+12. **文档查阅不足**: 没有仔细查阅 Lombok 注解的文档说明
+
+### 新增组织原因
+11. **技术培训不足**: 缺乏第三方库使用的专项培训
+12. **代码模板缺失**: 缺乏常用的 JPA 实体类模板
+
+
+
+## 改进措施更新
+
+### 新增技术改进
+19. **Lombok 使用规范**: 制定 Lombok 注解使用规范和最佳实践
+20. **继承实体模板**: 创建继承实体类的标准化模板
+
+### 新增流程改进
+11. **工具培训**: 增加常用开发工具和库的使用培训
+12. **文档检查**: 在代码审查中检查第三方库使用的正确性
+
+### 新增组织改进
+11. **专项技术培训**: 针对常用第三方库组织专项培训
+12. **代码模板库扩展**: 增加常用实体类、DTO 类的模板
+
+---
 *本文档将持续更新，记录项目开发过程中的所有代码问题*
-*最后更新: 2026-03-17 (添加问题#007)*
-*版本: v1.3*
+*最后更新: 2026-03-21 (添加问题#011)*
+*版本: v1.6*

@@ -9,7 +9,6 @@ import com.claw.modules.user.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +71,7 @@ public class AuthController {
         log.info("用户退出登录请求");
         authService.logout(authorizationHeader);
         
-        return ResponseEntity.ok(ApiResponse.success("退出登录成功"));
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     @GetMapping("/validate")

@@ -260,4 +260,32 @@ public class User extends BaseEntity {
     public boolean isDisabled() {
         return this.status == UserStatusEnum.DISABLED;
     }
+
+    /**
+     * 启用用户账户
+     */
+    public void enable() {
+        this.status = UserStatusEnum.NORMAL;
+    }
+
+    /**
+     * 禁用用户账户
+     */
+    public void disable() {
+        this.status = UserStatusEnum.DISABLED;
+    }
+
+    /**
+     * 锁定用户账户
+     */
+    public void lock() {
+        this.status = UserStatusEnum.LOCKED;
+    }
+
+    /**
+     * 解锁用户账户
+     */
+    public void unlock() {
+        this.status = UserStatusEnum.NORMAL;
+    }
 }
