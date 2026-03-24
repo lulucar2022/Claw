@@ -64,7 +64,7 @@ spring:
 
 # 服务器配置
 server:
-  port: 8080
+  port: 9090
   servlet:
     context-path: /api
   compression:
@@ -74,12 +74,12 @@ server:
   
 # 自定义应用配置
 app:
-  # JWT配置
+  # JWT 配置
   jwt:
-    secret-key: "${JWT_SECRET_KEY:your-jwt-secret-key-here-change-in-production}"
-    expiration-time: 86400000 # 24小时，单位毫秒
-    refresh-expiration-time: 604800000 # 7天，单位毫秒
-    token-prefix: "Bearer "
+    secret: ${JWT_SECRET_KEY:c2VjcmV0S2V5Rm9ySldUQXV0aGVudGljYXRpb25TeXN0ZW1TZWN1cml0eTIwMjQ=}
+    expiration: 86400000 # 24 小时，单位毫秒
+    refreshExpiration: 604800000 # 7 天，单位毫秒
+    tokenPrefix: "Bearer "
     header: "Authorization"
   
   # 安全配置
